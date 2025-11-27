@@ -13,11 +13,12 @@ import { Sparkles } from 'lucide-react';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: string;
   moodRating?: number | null;
   moodNotes?: string | null;
+  isCue?: boolean;
 }
 
 interface DbMessage {
@@ -111,7 +112,31 @@ export default function BuddyPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const handleSendMessage = async (customContent?: string) => {
+  const handleCueSelection = async (cue: string) => {
+    // Add the cue as a system message
+    const cueMessage: Message = {
+      id: `cue-${Date.now()}`,
+      role: 'system',
+      content: cue,
+      createdAt: new Date().toISOString(),
+      isCue: true
+    };
+    
+    // Add the cue message to the chat
+    setMessages(prev => [...prev, cueMessage]);
+    await saveMessage('assistant', cue, null, null, 'reflection');
+    
+    // Then send it as a user message to get a response
+    await handleSendMessage(cue, true);
+    
+    // Remove the cue message from the UI after a short delay
+    // This keeps the chat clean while maintaining the conversation context
+    setTimeout(() => {
+      setMessages(prev => prev.filter(msg => msg.id !== cueMessage.id));
+    }, 2000);
+  };
+
+  const handleSendMessage = async (customContent?: string, isFromCue: boolean = false) => {
     const messageContent = customContent || input.trim();
     if (!messageContent || !userId) return;
 
@@ -130,18 +155,25 @@ export default function BuddyPage() {
       moodNotes: moodNotes
     };
 
+    // Create updated messages array with the new user message
+    const updatedMessages = [...messages, userMessage];
+    
     // Optimistic Update
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(updatedMessages);
     setIsLoading(true);
 
     try {
       // 1. Save User Message
-      // We don't need the result, just waiting for it to save
       await saveMessage('user', messageContent, currentMood ?? null, moodNotes ?? null, chatMode);
 
       // 2. Generate Response using Server Action
+      // Only include user and assistant messages in the history sent to the LLM
+      const conversationHistory = updatedMessages
+        .filter(msg => msg.role !== 'system')
+        .map(({ role, content }) => ({ role, content }));
+
       const aiResponseContent = await generateResponse(
-        messages.map(m => ({ role: m.role, content: m.content })), // Pass history context
+        conversationHistory,
         messageContent,
         chatMode
       );
@@ -226,14 +258,25 @@ export default function BuddyPage() {
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] rounded-2xl p-4 ${
-                msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border shadow-sm'
+                msg.role === 'user' 
+                  ? 'bg-blue-600 text-white' 
+                  : msg.role === 'system' 
+                    ? 'bg-indigo-50 border-l-4 border-indigo-300 text-indigo-800 italic' 
+                    : 'bg-white border shadow-sm'
               }`}>
                 {msg.moodRating && (
                    <div className="text-xs mb-1 opacity-80 flex items-center gap-1">
                       Mood: {msg.moodRating}/10
                    </div>
                 )}
-                <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                {msg.isCue ? (
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="h-4 w-4 mt-0.5 flex-shrink-0 text-indigo-400" />
+                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                )}
               </div>
             </div>
           ))}
@@ -244,7 +287,10 @@ export default function BuddyPage() {
               {REFLECTION_PROMPTS.slice(0, 3).map((prompt, i) => (
                 <button 
                   key={i}
-                  onClick={() => handleSendMessage(prompt)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleCueSelection(prompt);
+                  }}
                   className="text-xs bg-white/80 backdrop-blur-sm text-indigo-700 px-4 py-2 rounded-full hover:bg-white transition-all shadow-sm hover:shadow-md border border-indigo-100 hover:border-indigo-200 flex items-center gap-2"
                 >
                   <Sparkles size={12} className="text-indigo-500" /> 
