@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const model = genAI.getGenerativeModel({ model: "embedding-001" });
 
 export async function updateMentorEmbedding(mentorId: string) {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Fetch the Mentor Data required for AI
     const { data: mentor, error } = await supabase
