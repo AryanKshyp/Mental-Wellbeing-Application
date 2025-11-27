@@ -1,7 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useRef, useEffect } from "react";
+import { findBestMentor } from "@/lib/actions/match-mentor";
+import { useState, useEffect, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,15 +14,15 @@ import {
   Code, Music, Plane, Gamepad2, Coffee,
   Ghost, ShieldCheck, Flame, Calendar, Clock, Mail,
   ThumbsUp, ThumbsDown, CheckCircle2, Search, Filter,
-  MoreHorizontal
+  MoreHorizontal, Loader2, ChevronDown, ChevronUp, Zap, Heart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ==========================================
-// --- DATA CONFIGURATION ---
-// ==========================================
+// --- INITIALIZE SUPABASE CLIENT ---
+const supabase = createClient();
 
 const MENTOR_TOPICS = ["Exam Stress", "Career Guidance", "Resume Review", "Project Help", "Loneliness"];
+const CHAT_FILTERS = ["All", "Seniors", "Alumni", "Professors"];
 
 const TALKSPACE_ROOMS = [
   { title: "Academic Stress", desc: "Late night grind club. Discuss exams, labs, and deadlines.", active: 24, icon: GraduationCap, color: "bg-orange-50 text-orange-600", border: "border-orange-100" },
@@ -31,13 +33,6 @@ const TALKSPACE_ROOMS = [
   { title: "Music & Jamming", desc: "Share playlists, find bandmates, or just vibe.", active: 7, icon: Music, color: "bg-purple-50 text-purple-600", border: "border-purple-200" },
   { title: "Study Abroad", desc: "GRE, TOEFL prep and university shortlisting discussions.", active: 15, icon: Plane, color: "bg-sky-50 text-sky-600", border: "border-sky-200" },
   { title: "Gaming Lounge", desc: "Valorant, FIFA weekends, and stream watch parties.", active: 31, icon: Gamepad2, color: "bg-emerald-50 text-emerald-600", border: "border-emerald-200" },
-];
-
-const INDIVIDUAL_CHATS = [
-  { id: 1, name: "Arjun Verma", role: "Senior", message: "Hey! For the DS algo project, check out...", time: "2m", unread: 2, avatarColor: "bg-orange-100 text-orange-600", bio: "CSE Final Year. loves hackathons, chai, and helping juniors debug code. Aspiring SDE.", email: "arjun.v@college.edu" },
-  { id: 2, name: "Dr. Kavita Rao", role: "Professor", message: "My office hours are 4-5 PM today.", time: "1h", unread: 0, avatarColor: "bg-blue-100 text-blue-600", bio: "Professor of Psychology. Specialized in student counseling and academic stress management.", email: "k.rao@college.edu" },
-  { id: 3, name: "Rohan Das", role: "Alumni", message: "Microsoft is hiring interns, send resume.", time: "3h", unread: 1, avatarColor: "bg-purple-100 text-purple-600", bio: "SDE-2 at Microsoft. 2023 Batch. Ask me about placements and interview prep.", email: "rohan.d@microsoft.com" },
-  { id: 4, name: "Priya Sethi", role: "Senior", message: "Don't stress about the mid-sems.", time: "1d", unread: 0, avatarColor: "bg-emerald-100 text-emerald-600", bio: "EE 3rd Year. Cultural Secretary. Happy to help with club activities and events!", email: "priya.s@college.edu" },
 ];
 
 const ROOM_CONTENT: Record<string, any> = {
@@ -60,37 +55,111 @@ const ROOM_CONTENT: Record<string, any> = {
   }
 };
 
-const CHAT_FILTERS = ["All", "Seniors", "Alumni", "Professors"];
-
-// ==========================================
-// --- MAIN DASHBOARD COMPONENT ---
-// ==========================================
 function DashboardContent() {
   const [activeFilter, setActiveFilter] = useState("All");
-  const [selectedChat, setSelectedChat] = useState<typeof INDIVIDUAL_CHATS[0] | null>(null);
-  const [activeRoom, setActiveRoom] = useState<typeof TALKSPACE_ROOMS[0] | null>(null);
+  const [selectedChat, setSelectedChat] = useState<any>(null);
+  const [activeRoom, setActiveRoom] = useState<any>(null);
 
-  // --- MENTOR MATCHER LOGIC ---
+  // --- AI MATCH STATE ---
+  const [aiMatches, setAiMatches] = useState<any[]>([]);
+
+  // --- DATA STATE ---
+  const [mentorsList, setMentorsList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- MENTOR MATCHER STATE ---
   const [mentorInput, setMentorInput] = useState("");
   const [matcherState, setMatcherState] = useState<"idle" | "searching" | "found">("idle");
 
-  const handleMentorSearch = () => {
-    setMatcherState("searching");
-    setTimeout(() => { setMatcherState("found"); }, 2000);
-  };
+  // 1. FETCH MENTORS (STRICT LIMIT 4)
+  useEffect(() => {
+    const fetchMentors = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('mentors')
+          .select('*')
+          .limit(4);
 
-  const filteredChats = INDIVIDUAL_CHATS.filter((chat) => {
+        if (error) throw error;
+
+        const formattedMentors = data.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          role: m.department_programme || "Mentor",
+          category: m.category || "Seniors",
+          bio: m.bio_for_profile,
+          avatarColor: m.avatar_color || "bg-slate-100 text-slate-600",
+          email: m.institute_email,
+          message: `Hey! I can help with ${m.confident_queries?.[0] || "anything"}.`,
+          time: "Now",
+          unread: m.unread_count || 0,
+          availability: m.availability_per_week,
+          // Mock data for UI if backend is missing it
+          groups: ["WnCC", "Placement Team", "Tech Club"],
+          experience: "Intern at Google (SDE)",
+          overcame: "Academic Burnout, Low CPI"
+        }));
+
+        setMentorsList(formattedMentors);
+      } catch (err) {
+        console.error("Error loading mentors:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMentors();
+  }, []);
+
+  // 2. FILTERING LOGIC
+  const filteredChats = mentorsList.filter((chat) => {
     if (activeFilter === "All") return true;
-    return activeFilter.includes(chat.role);
+    return chat.category === activeFilter;
   });
 
-  return (
-    // UPDATED: Full page transitional light blue gradient background
-    <div className="relative min-h-screen bg-gradient-to-b from-sky-50 via-blue-50 to-indigo-100 p-4 md:p-8 font-sans text-slate-900 selection:bg-sky-200 selection:text-sky-900">
+  // --- REAL AI SEARCH HANDLER ---
+  const handleMentorSearch = async () => {
+    if (!mentorInput.trim()) return;
 
-      {/* Ambient blobs blended into the new gradient */}
-      <div className="fixed top-0 left-0 -z-10 h-[600px] w-[600px] rounded-full bg-sky-200/40 blur-[120px] mix-blend-soft-light animate-pulse duration-1000" />
-      <div className="fixed bottom-0 right-0 -z-10 h-[600px] w-[600px] rounded-full bg-indigo-200/40 blur-[120px] mix-blend-soft-light" />
+    setMatcherState("searching");
+    setAiMatches([]);
+
+    try {
+      // Call the Server Action
+      const result = await findBestMentor(mentorInput);
+
+      if (result.success && result.mentors && result.mentors.length > 0) {
+        setAiMatches(result.mentors);
+        setMatcherState("found");
+      } else {
+        setMatcherState("idle");
+        console.log("No AI match found");
+      }
+    } catch (err) {
+      console.error(err);
+      setMatcherState("idle");
+    }
+  };
+
+  const startChatting = (mentor: any) => {
+    setMatcherState("idle");
+    setSelectedChat({
+      id: mentor.id,
+      name: mentor.name,
+      role: mentor.department_programme,
+      bio: mentor.bio_for_profile,
+      email: mentor.institute_email,
+      avatarColor: mentor.avatar_color,
+      availability: mentor.availability_per_week
+    });
+  };
+
+  return (
+    <div className="relative min-h-screen bg-[#f0f9ff] bg-[radial-gradient(#e0f2fe_1px,transparent_1px)] [background-size:24px_24px] p-4 md:p-8 font-sans text-slate-900 selection:bg-sky-200 selection:text-sky-900">
+
+      <div className="fixed top-0 left-0 -z-10 h-[600px] w-[600px] rounded-full bg-sky-200/30 blur-[120px] mix-blend-multiply animate-pulse duration-1000" />
+      <div className="fixed bottom-0 right-0 -z-10 h-[600px] w-[600px] rounded-full bg-indigo-200/30 blur-[120px] mix-blend-multiply" />
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 h-[800px] w-[800px] rounded-full bg-blue-100/40 blur-[100px]" />
 
       <div className="max-w-7xl mx-auto space-y-8">
 
@@ -100,8 +169,6 @@ function DashboardContent() {
           {/* LEFT: MENTORSHIP MATCHER (Span 7) */}
           <div className="lg:col-span-7 h-full">
             <Card className="h-full flex flex-col border-white/60 bg-white/60 backdrop-blur-xl shadow-xl shadow-sky-100/50 overflow-hidden relative transition-all hover:shadow-2xl hover:shadow-sky-100/60 ring-1 ring-white/50">
-
-              {/* Header Gradient */}
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500" />
 
               {matcherState === "idle" && (
@@ -119,7 +186,6 @@ function DashboardContent() {
                   </CardHeader>
 
                   <CardContent className="flex-1 flex flex-col gap-6 relative z-10">
-                    {/* Quick Tags */}
                     <div className="flex flex-wrap gap-2">
                       {MENTOR_TOPICS.map((topic) => (
                         <button
@@ -132,7 +198,6 @@ function DashboardContent() {
                       ))}
                     </div>
 
-                    {/* Input Area */}
                     <div className="relative flex-1 group">
                       <textarea
                         value={mentorInput}
@@ -140,9 +205,6 @@ function DashboardContent() {
                         className="w-full h-full min-h-[140px] rounded-2xl border border-slate-200 bg-white/80 p-5 text-sm shadow-inner focus:border-sky-400 focus:outline-none focus:ring-4 focus:ring-sky-50 resize-none transition-all placeholder:text-slate-400 group-hover:bg-white"
                         placeholder="Tell us what's happening... (e.g. 'I need help with my resume for Google internship')"
                       />
-                      <div className="absolute bottom-4 right-4 text-xs text-slate-300 pointer-events-none">
-                        Powered by Gemini
-                      </div>
                     </div>
 
                     <Button
@@ -171,63 +233,102 @@ function DashboardContent() {
                 </div>
               )}
 
-              {matcherState === "found" && (
-                <div className="flex-1 flex flex-col p-8 animate-in zoom-in-95 duration-500">
-                  <div className="flex items-center gap-2 mb-6 text-emerald-600 bg-emerald-50 w-fit px-4 py-1.5 rounded-full border border-emerald-100">
-                    <CheckCircle2 size={18} />
-                    <span className="font-bold text-sm">Perfect Match Found!</span>
+              {matcherState === "found" && aiMatches.length > 0 && (
+                <div className="flex-1 flex flex-col p-6 animate-in zoom-in-95 duration-500 overflow-hidden bg-slate-50/50">
+                  <div className="flex justify-between items-center mb-4 sticky top-0 bg-transparent z-20">
+                    <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 w-fit px-4 py-1.5 rounded-full border border-emerald-100 shadow-sm">
+                      <CheckCircle2 size={18} />
+                      <span className="font-bold text-sm">Top Recommendations</span>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setMatcherState("idle")} className="text-slate-400 hover:text-slate-600">Reset</Button>
                   </div>
 
-                  <div className="bg-gradient-to-br from-white to-sky-50/50 rounded-3xl p-6 border border-sky-100 shadow-lg flex items-center gap-6 mb-6 relative overflow-hidden group cursor-pointer hover:border-sky-200 transition-all">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                      <Sparkles size={80} className="text-sky-600" />
-                    </div>
-                    <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white font-bold text-3xl shadow-lg shadow-sky-200">
-                      R
-                    </div>
-                    <div>
-                      <h4 className="text-2xl font-bold text-slate-900">Rohan Das</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="bg-white text-sky-600 border border-sky-100">Alumni</Badge>
-                        <span className="text-sm text-slate-500">• Microsoft</span>
-                      </div>
-                      <p className="text-sm text-slate-600 mt-3 line-clamp-2 leading-relaxed">"Expert in resume reviews and big tech interview prep. Helped 15+ juniors land internships."</p>
-                    </div>
-                  </div>
+                  {/* --- 3D FLIP CARD LIST --- */}
+                  <div className="flex-1 overflow-y-auto pr-2 pb-4 scrollbar-thin scrollbar-thumb-slate-200">
+                    <div className="grid grid-cols-1 gap-4">
+                      {aiMatches.map((match, i) => {
+                        const groups = match.groups || ["WnCC", "Placement Team"];
+                        const experience = match.experience || "Intern at Google";
 
-                  <div className="grid grid-cols-2 gap-4 mt-auto">
-                    <Button variant="outline" onClick={() => setMatcherState("idle")} className="h-12 border-slate-200 hover:bg-slate-50 rounded-xl">
-                      Try Again
-                    </Button>
-                    <Button
-                      className="h-12 bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-lg shadow-sky-200"
-                      onClick={() => {
-                        setMatcherState("idle");
-                        setSelectedChat(INDIVIDUAL_CHATS[2]);
-                      }}
-                    >
-                      Start Chatting
-                    </Button>
+                        return (
+                          <div key={match.id} className="group relative h-[190px] w-full [perspective:1000px]">
+
+                            {/* --- THE FLIPPER (CONTENT ONLY) --- */}
+                            <div className="absolute inset-0 transition-all duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+
+                              {/* FRONT FACE (Avatar + Bio) */}
+                              <div className="absolute inset-0 h-full w-full bg-white rounded-3xl p-5 border border-slate-100 shadow-sm [backface-visibility:hidden] flex flex-col">
+                                <div className="flex items-start gap-4">
+                                  <div className={cn("h-14 w-14 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl font-bold shadow-sm bg-white border border-slate-100", match.avatar_color?.replace('bg-', 'text-') || "text-slate-800")}>
+                                    {match.name.charAt(0)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="text-lg font-bold text-slate-900 truncate">{match.name}</h4>
+                                      {i === 0 && <Badge className="bg-[#0ea5e9] text-white rounded-full px-2 py-0.5 text-[10px] font-bold border-none">Best Match</Badge>}
+                                    </div>
+                                    <p className="text-xs text-[#0ea5e9] font-medium mt-0.5 truncate">{match.department_programme}</p>
+                                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mt-2">
+                                      "{match.bio_for_profile}"
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* BACK FACE (Stats) */}
+                              <div className="absolute inset-0 h-full w-full bg-slate-50 rounded-3xl p-5 border border-slate-200 shadow-inner [transform:rotateY(180deg)] [backface-visibility:hidden] flex flex-col">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-bold text-slate-900">Mentor Stats</h4>
+                                  <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider flex items-center gap-1"><ShieldCheck size={12} />Verified</div>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                                    <div className="h-6 w-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0"><Users size={12} /></div>
+                                    <div className="text-[10px] text-slate-600 truncate"><span className="font-bold text-slate-900">Groups:</span> {groups.join(", ")}</div>
+                                  </div>
+                                  <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                                    <div className="h-6 w-6 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 flex-shrink-0"><Briefcase size={12} /></div>
+                                    <div className="text-[10px] text-slate-600 truncate"><span className="font-bold text-slate-900">Exp:</span> {experience}</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+
+                            {/* --- STATIC BUTTON (FLOATING ON TOP - NEVER FLIPS) --- */}
+                            <div className="absolute bottom-4 left-5 right-5 z-20">
+                              <Button
+                                onClick={() => startChatting(match)}
+                                className="w-full rounded-full bg-[#0f172a] hover:bg-slate-800 text-white h-9 font-bold text-xs shadow-md transition-all active:scale-95"
+                              >
+                                Chat Now
+                              </Button>
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
             </Card>
           </div>
 
-          {/* RIGHT: ACTIVE CHATS (Span 5) */}
+          {/* RIGHT: ACTIVE CHATS */}
           <div className="lg:col-span-5 h-full">
-            <Card className="h-full flex flex-col border-white/60 bg-white/60 backdrop-blur-xl shadow-xl shadow-slate-200/50 ring-1 ring-white/50">
-              <CardHeader className="pb-2 border-b border-slate-100/50 bg-white/40 backdrop-blur-md rounded-t-xl sticky top-0 z-20">
+            <Card className="h-full flex flex-col border-white/60 bg-white/60 backdrop-blur-xl shadow-xl shadow-slate-200/50 ring-1 ring-white/50 overflow-hidden">
+              <CardHeader className="pb-2 border-b border-slate-100/50 bg-white/40 backdrop-blur-md rounded-t-xl sticky top-0 z-20 shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg font-bold text-slate-800">Messages</CardTitle>
-                    <CardDescription>4 unread messages</CardDescription>
+                    <CardDescription>{loading ? "Connecting..." : `${mentorsList.length} mentors available`}</CardDescription>
                   </div>
                   <Button variant="ghost" size="icon" className="text-slate-400 hover:bg-slate-100 rounded-full">
                     <MoreHorizontal size={20} />
                   </Button>
                 </div>
-                {/* Scrollable Filter Bar */}
+                {/* Filter Bar */}
                 <div className="flex gap-2 mt-4 overflow-x-auto pb-2 scrollbar-hide mask-linear-fade">
                   {CHAT_FILTERS.map((filter) => (
                     <button
@@ -246,40 +347,48 @@ function DashboardContent() {
                 </div>
               </CardHeader>
 
-              <CardContent className="flex-1 space-y-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-slate-200">
-                {filteredChats.map((chat) => (
-                  <div
-                    key={chat.id}
-                    onClick={() => setSelectedChat(chat)}
-                    className="group flex items-center justify-between rounded-xl p-3 hover:bg-white hover:shadow-md hover:shadow-slate-100 border border-transparent hover:border-slate-50 transition-all cursor-pointer relative"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl font-bold text-lg shadow-sm transition-transform group-hover:scale-105", chat.avatarColor)}>
-                          {chat.name.charAt(0)}
-                        </div>
-                        {/* Online Indicator */}
-                        <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
-                      </div>
-                      <div className="max-w-[150px] sm:max-w-[200px]">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm text-slate-900">{chat.name}</p>
-                        </div>
-                        <p className={cn("text-xs truncate mt-0.5", chat.unread > 0 ? "text-slate-800 font-medium" : "text-slate-400")}>
-                          {chat.message}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className="text-[10px] text-slate-400 font-bold">{chat.time}</span>
-                      {chat.unread > 0 && (
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white shadow-sm shadow-sky-200">
-                          {chat.unread}
-                        </span>
-                      )}
-                    </div>
+              <CardContent className="flex-1 min-h-0 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-slate-200">
+                {loading ? (
+                  <div className="flex items-center justify-center h-full text-slate-400 gap-2">
+                    <Loader2 className="animate-spin" /> Loading chats...
                   </div>
-                ))}
+                ) : filteredChats.length > 0 ? (
+                  filteredChats.map((chat) => (
+                    <div
+                      key={chat.id}
+                      onClick={() => setSelectedChat(chat)}
+                      className="group flex items-center justify-between rounded-xl p-3 hover:bg-white hover:shadow-md hover:shadow-slate-100 border border-transparent hover:border-slate-50 transition-all cursor-pointer relative"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl font-bold text-lg shadow-sm transition-transform group-hover:scale-105", chat.avatarColor)}>
+                            {chat.name.charAt(0)}
+                          </div>
+                        </div>
+                        <div className="max-w-[150px] sm:max-w-[200px]">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm text-slate-900 truncate">{chat.name}</p>
+                          </div>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">{chat.message}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className="text-[10px] text-slate-400 font-bold">{chat.time}</span>
+                        {/* CONDITIONAL UNREAD BADGE - HIDDEN IF 0 */}
+                        {chat.unread > 0 && (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white shadow-sm shadow-sky-200">
+                            {chat.unread}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-sm text-slate-400 flex flex-col items-center gap-2">
+                    <Users className="opacity-20" size={32} />
+                    No {activeFilter.toLowerCase()} found.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -328,7 +437,6 @@ function DashboardContent() {
 
                   {/* --- BACK --- */}
                   <div className="absolute inset-0 h-full w-full rounded-3xl bg-slate-900 p-6 text-slate-100 [transform:rotateY(180deg)] [backface-visibility:hidden] flex flex-col justify-between shadow-2xl overflow-hidden">
-                    {/* Abstract bg shape */}
                     <div className="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-sky-500/20 blur-2xl" />
 
                     <div className="relative z-10">
@@ -366,7 +474,7 @@ function DashboardContent() {
 // ==========================================
 // --- CHAT OVERLAY ---
 // ==========================================
-function ChatOverlay({ chat, onClose }: { chat: typeof INDIVIDUAL_CHATS[0]; onClose: () => void }) {
+function ChatOverlay({ chat, onClose }: { chat: any; onClose: () => void }) {
   const [messages, setMessages] = useState([
     { id: 1, text: "Hey! How can I help you today?", sender: "them", time: "10:00 AM" },
     { id: 2, text: chat.message, sender: "them", time: "10:02 AM" },
@@ -431,8 +539,8 @@ function ChatOverlay({ chat, onClose }: { chat: typeof INDIVIDUAL_CHATS[0]; onCl
                 <p className="text-sm text-slate-600 leading-relaxed">{chat.bio}</p>
               </div>
               <div className="space-y-3 pl-2">
-                <div className="flex items-center gap-3 text-sm text-slate-600"><Mail size={16} className="text-sky-500" /><span className="truncate">{chat.email}</span></div>
-                <div className="flex items-center gap-3 text-sm text-slate-600"><Clock size={16} className="text-orange-500" /><span>Replies in ~1 hr</span></div>
+                <div className="flex items-center gap-3 text-sm text-slate-600"><Mail size={16} className="text-sky-500" /><span className="truncate">{chat.email || "No email"}</span></div>
+                <div className="flex items-center gap-3 text-sm text-slate-600"><Clock size={16} className="text-orange-500" /><span>{chat.availability || "Flexible"}</span></div>
                 <div className="flex items-center gap-3 text-sm text-slate-600"><Calendar size={16} className="text-purple-500" /><span>Available: Mon-Fri</span></div>
               </div>
             </div>
@@ -443,10 +551,7 @@ function ChatOverlay({ chat, onClose }: { chat: typeof INDIVIDUAL_CHATS[0]; onCl
   )
 }
 
-// ==========================================
-// --- COMMUNITY ROOM OVERLAY ---
-// ==========================================
-function CommunityRoomOverlay({ room, onClose }: { room: typeof TALKSPACE_ROOMS[0]; onClose: () => void }) {
+function CommunityRoomOverlay({ room, onClose }: { room: any; onClose: () => void }) {
   const content = ROOM_CONTENT[room.title] || ROOM_CONTENT["default"];
   const [messages, setMessages] = useState<any[]>(content.messages);
   const [inputValue, setInputValue] = useState("");
@@ -532,8 +637,8 @@ function CommunityRoomOverlay({ room, onClose }: { room: typeof TALKSPACE_ROOMS[
                 </div>
               </div>
               <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative">
-                <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} className="w-full min-h-[60px] rounded-2xl border border-slate-200 bg-slate-50 p-4 pr-14 text-sm focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-50 transition-all resize-none shadow-inner" placeholder={isAnonymous ? "Speak your mind freely (Anonymous mode)..." : "Contribute to the discussion..."} />
-                <Button type="submit" size="icon" className={cn("absolute bottom-3 right-3 h-10 w-10 rounded-xl transition-all shadow-md", inputValue.trim() ? "bg-sky-600 hover:bg-sky-700 text-white" : "bg-slate-200 text-slate-400")}><Send size={18} /></Button>
+                <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} className="w-full min-h-[60px] rounded-2xl border border-slate-200 bg-slate-50 p-4 pr-14 text-sm focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-50 transition-all resize-none shadow-inner" placeholder={isAnonymous ? "Speak your mind freely (Anonymous mode)..." : "Contribute to the discussion..."} />
+                <Button type="submit" size="icon" className={cn("absolute bottom-3 right-3 h-10 w-10 rounded-xl transition-all shadow-md", inputValue.trim() ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-200 text-slate-400")}><Send size={18} /></Button>
               </form>
             </div>
           </div>
