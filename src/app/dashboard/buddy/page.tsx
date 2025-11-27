@@ -43,6 +43,24 @@ export default function BuddyPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>('common');
   
+  const toggleChatMode = async () => {
+    const newMode = chatMode === 'common' ? 'reflection' : 'common';
+    setChatMode(newMode);
+    
+    // If switching to reflection mode, add a welcome message
+    if (newMode === 'reflection') {
+      const welcomeMessage = {
+        id: `reflection-welcome-${Date.now()}`,
+        role: 'assistant' as const,
+        content: 'Welcome to Reflection Mode. Let\'s take a moment to reflect. What\'s been on your mind lately?',
+        createdAt: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, welcomeMessage]);
+      await saveMessage('assistant', welcomeMessage.content, null, null, 'reflection');
+    }
+  };
+
   // Mood states
   const [showMoodSelector, setShowMoodSelector] = useState(false);
   const [currentMood, setCurrentMood] = useState<number | null>(null);
@@ -163,33 +181,48 @@ export default function BuddyPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50">
+    <div className={`flex flex-col h-[calc(100vh-64px)] transition-colors duration-300 ${
+      chatMode === 'reflection' ? 'bg-indigo-50' : 'bg-white'
+    }`}>
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b bg-white">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Bot className="text-blue-500" /> AI Buddy
-        </h1>
-        <div className="flex bg-slate-100 p-1 rounded-lg">
-          <Button
-            variant={chatMode === 'common' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setChatMode('common')}
-          >
-            Chat
-          </Button>
-          <Button
-             variant={chatMode === 'reflection' ? 'default' : 'ghost'}
-             size="sm"
-             onClick={() => setChatMode('reflection')}
-          >
-            Reflection
-          </Button>
+      <div className={`p-4 border-b flex justify-between items-center transition-colors duration-300 ${
+        chatMode === 'reflection' ? 'bg-indigo-600 text-white' : 'bg-white'
+      }`}>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">AI Buddy</h1>
+          {chatMode === 'reflection' && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">
+              <Sparkles className="h-3 w-3" />
+              Reflection Mode
+            </span>
+          )}
         </div>
+        <Button 
+          onClick={toggleChatMode}
+          variant={chatMode === 'reflection' ? 'secondary' : 'outline'}
+          className={`gap-2 transition-all ${chatMode === 'reflection' ? 'bg-white text-indigo-700 hover:bg-indigo-50' : ''}`}
+        >
+          {chatMode === 'reflection' ? (
+            <>
+              <Sparkles className="h-4 w-4" />
+              Exit Reflection
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4" />
+              Start Reflecting
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="max-w-2xl mx-auto space-y-4">
+      <ScrollArea className={`flex-1 p-4 overflow-y-auto transition-colors duration-300 ${
+        chatMode === 'reflection' ? 'bg-gradient-to-b from-indigo-50 to-indigo-25' : ''
+      }`}>
+        <div className={`max-w-2xl mx-auto space-y-4 transition-all duration-300 ${
+          chatMode === 'reflection' ? 'transform -translate-y-1' : ''
+        }`}>
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] rounded-2xl p-4 ${
@@ -207,14 +240,15 @@ export default function BuddyPage() {
           
           {/* Reflection Prompts Injection */}
           {chatMode === 'reflection' && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !isLoading && (
-            <div className="flex flex-wrap gap-2 mt-4 justify-center">
+            <div className="flex flex-wrap gap-2 mt-4 justify-center animate-in fade-in-50 slide-in-from-bottom-2">
               {REFLECTION_PROMPTS.slice(0, 3).map((prompt, i) => (
                 <button 
                   key={i}
                   onClick={() => handleSendMessage(prompt)}
-                  className="text-xs bg-indigo-50 text-indigo-700 px-3 py-2 rounded-full hover:bg-indigo-100 transition-colors border border-indigo-100 flex items-center gap-1"
+                  className="text-xs bg-white/80 backdrop-blur-sm text-indigo-700 px-4 py-2 rounded-full hover:bg-white transition-all shadow-sm hover:shadow-md border border-indigo-100 hover:border-indigo-200 flex items-center gap-2"
                 >
-                  <Sparkles size={12} /> {prompt}
+                  <Sparkles size={12} className="text-indigo-500" /> 
+                  {prompt}
                 </button>
               ))}
             </div>
@@ -230,8 +264,15 @@ export default function BuddyPage() {
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t">
+      <div className={`p-4 border-t transition-colors duration-300 ${
+        chatMode === 'reflection' ? 'bg-white/80 backdrop-blur-sm' : 'bg-white'
+      }`}>
         <div className="max-w-2xl mx-auto">
+          {chatMode === 'reflection' && (
+            <div className="text-center text-xs text-indigo-600 mb-2 font-medium">
+              You're in Reflection Mode. Take your time to express yourself.
+            </div>
+          )}
           {showMoodSelector && (
              <div className="mb-4 p-4 bg-slate-50 rounded-xl border animate-in slide-in-from-bottom-2">
                 <p className="text-sm font-medium mb-3">How are you feeling?</p>
@@ -256,7 +297,9 @@ export default function BuddyPage() {
               variant="outline"
               size="icon"
               onClick={() => setShowMoodSelector(!showMoodSelector)}
-              className={currentMood ? "text-blue-600 border-blue-200 bg-blue-50" : ""}
+              className={`transition-all ${currentMood ? "text-blue-600 border-blue-200 bg-blue-50" : ""} ${
+                chatMode === 'reflection' ? 'bg-white/80 hover:bg-white border-indigo-200' : ''
+              }`}
             >
               {currentMood ? <Smile /> : <Plus />}
             </Button>
@@ -267,10 +310,16 @@ export default function BuddyPage() {
               onKeyDown={handleKeyDown}
               placeholder="Type your message..."
               disabled={isLoading}
-              className="flex-1"
+              className={`flex-1 transition-all ${
+                chatMode === 'reflection' ? 'bg-white/80 border-indigo-200 focus:border-indigo-400' : ''
+              }`}
             />
             
-            <Button onClick={() => handleSendMessage()} disabled={isLoading || !input.trim()}>
+            <Button 
+              onClick={() => handleSendMessage()} 
+              disabled={isLoading || !input.trim()}
+              className={chatMode === 'reflection' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>

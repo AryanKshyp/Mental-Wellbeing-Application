@@ -6,11 +6,9 @@ import type { Database } from "@/types/database.types";
 
 type SupabaseClient = ReturnType<typeof createSupabaseServerClient<Database>>;
 
-/**
- * Creates a Supabase client for server-side operations
- * @returns Supabase client instance
- */
-export async function createServerClient(): Promise<SupabaseClient> {
+export type TypedSupabaseClient = ReturnType<typeof createSupabaseServerClient<Database>>;
+
+export async function createServerClient(): Promise<TypedSupabaseClient> {
   const cookieStore = cookies();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -22,7 +20,6 @@ export async function createServerClient(): Promise<SupabaseClient> {
     );
   }
 
-  // Use service role key if available, otherwise fallback to anon key
   const key = supabaseServiceKey || supabaseKey as string;
 
   return createSupabaseServerClient<Database>(
@@ -37,7 +34,6 @@ export async function createServerClient(): Promise<SupabaseClient> {
           try {
             cookieStore.set({ name, value, ...options });
           } catch (error) {
-            // Handle cookie setting error
             console.error('Error setting cookie:', error);
           }
         },
@@ -49,7 +45,7 @@ export async function createServerClient(): Promise<SupabaseClient> {
           }
         },
       },
-    },
+    }
   );
 }
 

@@ -1,14 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 // This import will now work because we fixed Step 1
 import { loginSchema, signupSchema } from "@/lib/validations/auth";
 import type { z } from "zod";
 
 // --- LOGIN ---
 export async function loginAction(formData: z.infer<typeof loginSchema>) {
-  const supabase = createServerSupabase();
+  const supabase = await createServerClient();
   const parsed = loginSchema.safeParse(formData);
 
   if (!parsed.success) return { error: "Invalid login data" };
@@ -24,7 +24,7 @@ export async function loginAction(formData: z.infer<typeof loginSchema>) {
 
 // --- SIGNUP ---
 export async function signupAction(formData: z.infer<typeof signupSchema>) {
-  const supabase = createServerSupabase();
+  const supabase = await createServerClient();
 
   // This line was crashing because signupSchema was undefined. It should work now.
   const parsed = signupSchema.safeParse(formData);
@@ -54,5 +54,5 @@ export async function signupAction(formData: z.infer<typeof signupSchema>) {
     return { error: error?.message ?? "Unable to create account" };
   }
 
-  redirect("/dashboard");
+  redirect("/login");
 }
