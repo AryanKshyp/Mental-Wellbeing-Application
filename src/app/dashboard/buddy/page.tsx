@@ -3,13 +3,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-// 1. Updated Import: Added generateResponse
 import { getChatHistory, saveMessage, getUserSession, generateResponse } from './actions'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Bot, Plus, Smile } from 'lucide-react'; // Cleaned unused icons
+import { Loader2, Send, Plus, Smile } from 'lucide-react';
 import { Sparkles } from 'lucide-react';
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
 
 interface Message {
   id: string;
@@ -237,102 +237,95 @@ export default function BuddyPage() {
   };
 
   return (
-    <div className={`flex flex-col h-[calc(100vh-64px)] transition-colors duration-300 ${
-      chatMode === 'reflection' ? 'bg-indigo-50' : 'bg-white'
-    }`}>
-      {/* Header */}
-      <div className={`p-4 border-b flex justify-between items-center transition-colors duration-300 ${
-        chatMode === 'reflection' ? 'bg-indigo-600 text-white' : 'bg-white'
+    <div className="flex flex-col min-h-screen bg-white">
+      <DashboardHeader />
+      {/* Chat Mode Toggle */}
+      <div className={`border-b flex justify-between items-center transition-colors duration-300 ${
+        chatMode === 'reflection' ? 'bg-indigo-600 text-white' : 'bg-white border-b border-gray-100'
       }`}>
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">AI Buddy</h1>
-          {chatMode === 'reflection' && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">
-              <Sparkles className="h-3 w-3" />
-              Reflection Mode
-            </span>
-          )}
-        </div>
-        <Button 
-          onClick={toggleChatMode}
-          variant={chatMode === 'reflection' ? 'secondary' : 'outline'}
-          className={`gap-2 transition-all ${chatMode === 'reflection' ? 'bg-white text-indigo-700 hover:bg-indigo-50' : ''}`}
-        >
-          {chatMode === 'reflection' ? (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Exit Reflection
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Start Reflecting
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* Messages Area */}
-      <ScrollArea className={`flex-1 p-4 overflow-y-auto transition-colors duration-300 ${
-        chatMode === 'reflection' ? 'bg-gradient-to-b from-indigo-50 to-indigo-25' : ''
-      }`}>
-        <div className={`max-w-2xl mx-auto space-y-4 transition-all duration-300 ${
-          chatMode === 'reflection' ? 'transform -translate-y-1' : ''
-        }`}>
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl p-4 ${
-                msg.role === 'user' 
-                  ? 'bg-blue-600 text-white' 
-                  : msg.role === 'system' 
-                    ? 'bg-indigo-50 border-l-4 border-indigo-300 text-indigo-800 italic' 
-                    : 'bg-white border shadow-sm'
-              }`}>
-                {msg.moodRating && (
-                   <div className="text-xs mb-1 opacity-80 flex items-center gap-1">
-                      Mood: {msg.moodRating}/10
-                   </div>
-                )}
-                {msg.isCue ? (
-                  <div className="flex items-start gap-2">
-                    <Sparkles className="h-4 w-4 mt-0.5 flex-shrink-0 text-indigo-400" />
-                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
-                )}
-              </div>
+        <div className="max-w-7xl w-full mx-auto px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">AI Buddy</span>
+              <div className="h-1 w-1 rounded-full bg-gray-400"></div>
+              <span className="text-sm">{chatMode === 'reflection' ? 'Reflection Mode' : 'Chat Mode'}</span>
             </div>
-          ))}
+            <Button
+              variant={chatMode === 'reflection' ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={toggleChatMode}
+              className={`transition-all ${chatMode === 'reflection' ? 'bg-white/10 hover:bg-white/20' : ''}`}
+            >
+              {chatMode === 'reflection' ? 'Switch to Chat Mode' : 'Switch to Reflection Mode'}
+            </Button>
+          </div>
+        </div>
+      </div>
+      
+      <div className={`flex-1 flex flex-col overflow-hidden transition-colors duration-300 ${
+        chatMode === 'reflection' ? 'bg-indigo-50' : 'bg-white'
+      }`}>
+        {/* Messages Container */}
+        <ScrollArea className="flex-1 p-4 overflow-y-auto">
+          <div className="max-w-3xl mx-auto w-full space-y-4">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl p-4 ${
+                  msg.role === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : msg.role === 'system' 
+                      ? 'bg-indigo-50 border-l-4 border-indigo-300 text-indigo-800 italic' 
+                      : 'bg-white border shadow-sm'
+                }`}>
+                  {msg.moodRating && (
+                    <div className="text-xs mb-1 opacity-80 flex items-center gap-1">
+                      Mood: {msg.moodRating}/10
+                    </div>
+                  )}
+                  {msg.isCue ? (
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="h-4 w-4 mt-0.5 flex-shrink-0 text-indigo-400" />
+                      <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex items-center gap-2 text-slate-400 text-sm p-4">
+                <Loader2 className="h-4 w-4 animate-spin" /> AI is thinking...
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
           
           {/* Reflection Prompts Injection */}
           {chatMode === 'reflection' && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !isLoading && showPrompts && (
-            <div className="flex flex-wrap gap-2 mt-4 justify-center animate-in fade-in-50 slide-in-from-bottom-2">
-              {REFLECTION_PROMPTS.slice(0, 3).map((prompt, i) => (
-                <button 
-                  key={i}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleCueSelection(prompt);
-                  }}
-                  className="text-xs bg-white/80 backdrop-blur-sm text-indigo-700 px-4 py-2 rounded-full hover:bg-white transition-all shadow-sm hover:shadow-md border border-indigo-100 hover:border-indigo-200 flex items-center gap-2"
-                >
-                  <Sparkles size={12} className="text-indigo-500" /> 
-                  {prompt}
-                </button>
-              ))}
+            <div className="max-w-3xl mx-auto pt-2 pb-4">
+              <div className="text-xs text-slate-500 mb-2 px-4">Quick prompts to get you started:</div>
+              <div className="flex flex-wrap gap-2 px-4">
+                {REFLECTION_PROMPTS.slice(0, 3).map((prompt, i) => (
+                  <button 
+                    key={i}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleCueSelection(prompt);
+                    }}
+                    className="text-xs bg-white border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-all shadow-sm hover:shadow-md flex items-center gap-1.5"
+                  >
+                    <Sparkles size={12} className="text-indigo-500 flex-shrink-0" /> 
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
-
-          {isLoading && (
-             <div className="flex items-center gap-2 text-slate-400 text-sm p-2">
-               <Loader2 className="h-4 w-4 animate-spin" /> AI is thinking...
-             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-
+        </ScrollArea>
+      </div>
+      
       {/* Input Area */}
       <div className={`p-4 border-t transition-colors duration-300 ${
         chatMode === 'reflection' ? 'bg-white/80 backdrop-blur-sm' : 'bg-white'

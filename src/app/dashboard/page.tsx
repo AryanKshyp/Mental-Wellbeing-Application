@@ -665,7 +665,7 @@ export default function DashboardPage() {
                     <Plus className="h-5 w-5 text-blue-400" />
                   </div>
                   <h3 className="text-sm font-medium text-slate-700">No habits yet</h3>
-                  <p className="mt-1 text-sm text-slate-500">Start by adding your first habit</p>
+                  <p className="mt-1 text-sm text-slate-500">Start by adding your first habit like: Mindful Breathing, Plan your Day, Journal, Reach out to a friend</p>
                   <Button
                     variant="outline"
                     size="sm"

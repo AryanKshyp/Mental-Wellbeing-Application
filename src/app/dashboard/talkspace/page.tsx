@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { findBestMentor } from "@/lib/actions/match-mentor";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,14 +26,70 @@ const MENTOR_TOPICS = ["Exam Stress", "Career Guidance", "Resume Review", "Proje
 const CHAT_FILTERS = ["All", "Seniors", "Alumni", "Professors"];
 
 const TALKSPACE_ROOMS = [
-  { title: "Academic Stress", desc: "Late night grind club. Discuss exams, labs, and deadlines.", active: 24, icon: GraduationCap, color: "bg-orange-50 text-orange-600", border: "border-orange-100" },
-  { title: "Emotional Wellbeing", desc: "Gentle space to talk about feelings anonymously.", active: 12, icon: Sparkles, color: "bg-rose-50 text-rose-600", border: "border-rose-100" },
-  { title: "Career Confusion", desc: "Placements, internships, and figuring out what's next.", active: 18, icon: Briefcase, color: "bg-blue-50 text-blue-600", border: "border-blue-100" },
-  { title: "Hostel Life", desc: "Roommate drama, homesickness, and mess food rants.", active: 8, icon: Coffee, color: "bg-amber-50 text-amber-600", border: "border-amber-100" },
-  { title: "Coding Club", desc: "LeetCode marathons, hackathon teams, and debug help.", active: 42, icon: Code, color: "bg-slate-50 text-slate-600", border: "border-slate-200" },
-  { title: "Music & Jamming", desc: "Share playlists, find bandmates, or just vibe.", active: 7, icon: Music, color: "bg-purple-50 text-purple-600", border: "border-purple-200" },
-  { title: "Study Abroad", desc: "GRE, TOEFL prep and university shortlisting discussions.", active: 15, icon: Plane, color: "bg-sky-50 text-sky-600", border: "border-sky-200" },
-  { title: "Gaming Lounge", desc: "Valorant, FIFA weekends, and stream watch parties.", active: 31, icon: Gamepad2, color: "bg-emerald-50 text-emerald-600", border: "border-emerald-200" },
+  { 
+    title: "Academic Stress", 
+    desc: "A space to share worries about exams, backlog pressure, or tough weeks — without judgment.", 
+    active: 24, 
+    icon: GraduationCap, 
+    color: "bg-orange-50 text-orange-600", 
+    border: "border-orange-100" 
+  },
+  { 
+    title: "Productivity", 
+    desc: "Talk about routines, burnout, focus struggles, and finding a pace that works for you.", 
+    active: 16, 
+    icon: Clock, // Suggestion: Use 'Zap' or 'Clock'
+    color: "bg-cyan-50 text-cyan-600", 
+    border: "border-cyan-100" 
+  },
+  { 
+    title: "Career Confusion", 
+    desc: "Ask questions about resumes, internships, career paths, and navigating uncertainty together.", 
+    active: 18, 
+    icon: Briefcase, 
+    color: "bg-blue-50 text-blue-600", 
+    border: "border-blue-100" 
+  },
+  { 
+    title: "Friends & Hostel Life", 
+    desc: "Share experiences about friendships, roommates, hostel life, or feeling out of place.", 
+    active: 12, 
+    icon: Coffee, 
+    color: "bg-amber-50 text-amber-600", 
+    border: "border-amber-100" 
+  },
+  { 
+    title: "Personal Wellbeing", 
+    desc: "A supportive corner to talk about self-confidence, motivation dips, and growing as a person.", 
+    active: 22, 
+    icon: Sparkles, 
+    color: "bg-violet-50 text-violet-600", 
+    border: "border-violet-100" 
+  },
+  { 
+    title: "Relationships", 
+    desc: "A safe room to discuss dating, heartbreak, confusion, and everything in between.", 
+    active: 35, 
+    icon: Heart, 
+    color: "bg-rose-50 text-rose-600", 
+    border: "border-rose-100" 
+  },
+  { 
+    title: "FOMO & Comparison", 
+    desc: "If feeling “behind,” comparing yourself, or dealing with pressure — this room is for you.", 
+    active: 9, 
+    icon: Users, // Suggestion: Use 'Scale' or 'Activity'
+    color: "bg-slate-50 text-slate-600", 
+    border: "border-slate-200" 
+  },
+  { 
+    title: "Institute Clubs", 
+    desc: "Explore club cultures, workloads, and opportunities across campus — from seniors who’ve been there.", 
+    active: 42, 
+    icon: Users, // Suggestion: Use 'Users' or 'Tent'
+    color: "bg-emerald-50 text-emerald-600", 
+    border: "border-emerald-200" 
+  },
 ];
 
 const ROOM_CONTENT: Record<string, any> = {
@@ -155,13 +212,14 @@ function DashboardContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#f0f9ff] bg-[radial-gradient(#e0f2fe_1px,transparent_1px)] [background-size:24px_24px] p-4 md:p-8 font-sans text-slate-900 selection:bg-sky-200 selection:text-sky-900">
+    <div className="relative min-h-screen bg-[#f0f9ff] bg-[radial-gradient(#e0f2fe_1px,transparent_1px)] [background-size:24px_24px] font-sans text-slate-900 selection:bg-sky-200 selection:text-sky-900">
+      <DashboardHeader />
 
-      <div className="fixed top-0 left-0 -z-10 h-[600px] w-[600px] rounded-full bg-sky-200/30 blur-[120px] mix-blend-multiply animate-pulse duration-1000" />
+      <div className="fixed top-20 left-0 -z-10 h-[600px] w-[600px] rounded-full bg-sky-200/30 blur-[120px] mix-blend-multiply animate-pulse duration-1000" />
       <div className="fixed bottom-0 right-0 -z-10 h-[600px] w-[600px] rounded-full bg-indigo-200/30 blur-[120px] mix-blend-multiply" />
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 h-[800px] w-[800px] rounded-full bg-blue-100/40 blur-[100px]" />
 
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8 p-4 md:p-8 pt-6">
 
         {/* --- SECTION 1 & 2: MENTOR & CHATS --- */}
         <section className="grid gap-6 lg:grid-cols-12 h-auto lg:h-[500px]">
