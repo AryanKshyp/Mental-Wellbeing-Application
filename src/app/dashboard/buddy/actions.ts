@@ -161,10 +161,13 @@ export async function generateResponse(
       }));
 
     // 4. Sanitize History
-    // Rule: Chat history must start with a 'user' message. 
-    // If the slice cuts off at a 'model' message, remove it.
-    if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+    // Ensure the history starts with a user message
+    while (formattedHistory.length > 0 && formattedHistory[0].role !== 'user') {
       formattedHistory.shift();
+    }
+    // If no user message is found, ensure we have at least the current message
+    if (formattedHistory.length === 0) {
+      return "I'm not sure how to respond to that. Could you try rephrasing?";
     }
 
     // 5. Start Chat
