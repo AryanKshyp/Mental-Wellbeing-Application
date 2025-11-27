@@ -1,8 +1,8 @@
 # Project Haven - Mental Wellbeing Application
 
-![Project Haven Logo](public/logo.png)
+![Project Haven Logo](public/logo.jpeg)
 
-Access the website at: [project-haven.vercel.app](project-haven.vercel.app)
+Access the website at: [project-haven-iitb.vercel.app](project-haven-iitb.vercel.app)
 
 ## 🌟 Overview
 Project Haven is a comprehensive mental wellbeing platform designed to support students and professionals in managing their mental health and wellness. The application provides a safe space for users to track their mood, connect with peers, access resources, and develop healthy habits.

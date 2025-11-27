@@ -43,6 +43,7 @@ export default function BuddyPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>('common');
+  const [showPrompts, setShowPrompts] = useState(true);
   
   const toggleChatMode = async () => {
     const newMode = chatMode === 'common' ? 'reflection' : 'common';
@@ -82,25 +83,37 @@ export default function BuddyPage() {
       setUserId(user.id);
 
       try {
-        const history = await getChatHistory() as DbMessage[]; // Cast the return type
+        const history = await getChatHistory() as DbMessage[];
         if (history && history.length > 0) {
-          const transformedHistory = history.map(msg => ({
+          const transformedHistory: Message[] = history.map(msg => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
-            createdAt: msg.created_at
-          })) as Message[];
+            createdAt: msg.created_at,
+            moodRating: (msg as any).mood_rating, // Using type assertion since mood_rating isn't in DbMessage
+            moodNotes: (msg as any).mood_notes,   // Using type assertion since mood_notes isn't in DbMessage
+            isCue: false
+          }));
           setMessages(transformedHistory);
+          
+          // Show prompts if last message is from assistant
+          if (transformedHistory.length > 0 && transformedHistory[transformedHistory.length - 1].role === 'assistant') {
+            setShowPrompts(true);
+          }
         } else {
-          setMessages([{
-            id: 'welcome',
-            role: 'assistant',
+          // Add welcome message if no history exists
+          const welcomeMessage = {
+            id: 'welcome-' + Date.now(),
+            role: 'assistant' as const,
             content: "Hello! I'm your AI Buddy. How are you feeling today?",
-            createdAt: new Date().toISOString()
-          }]);
+            createdAt: new Date().toISOString(),
+            isCue: false
+          };
+          setMessages([welcomeMessage]);
+          await saveMessage('assistant', welcomeMessage.content, null, null, 'common');
         }
       } catch (error) {
-        console.error('Error fetching messages:', error);
+        console.error('Error initializing chat:', error);
       }
     };
 
@@ -113,32 +126,43 @@ export default function BuddyPage() {
   }, [messages, isLoading]);
 
   const handleCueSelection = async (cue: string) => {
-    // Add the cue as a system message
+    if (!userId) return;
+    
+    setShowPrompts(false); // Hide prompts when a cue is selected
+    
+    // Add the cue as an assistant message
     const cueMessage: Message = {
-      id: `cue-${Date.now()}`,
-      role: 'system',
+      id: `msg-${Date.now()}`,
+      role: 'assistant',
       content: cue,
       createdAt: new Date().toISOString(),
       isCue: true
     };
     
-    // Add the cue message to the chat
-    setMessages(prev => [...prev, cueMessage]);
-    await saveMessage('assistant', cue, null, null, 'reflection');
-    
-    // Then send it as a user message to get a response
-    await handleSendMessage(cue, true);
-    
-    // Remove the cue message from the UI after a short delay
-    // This keeps the chat clean while maintaining the conversation context
-    setTimeout(() => {
-      setMessages(prev => prev.filter(msg => msg.id !== cueMessage.id));
-    }, 2000);
+    try {
+      // Save the cue message to the database
+      await saveMessage('assistant', cue, null, null, 'reflection');
+      
+      // Update the UI with the new message
+      setMessages(prev => [...prev, cueMessage]);
+      
+      // Set the cue as the input for the user to respond to
+      setInput(cue);
+      
+      // Focus the input field
+      const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement;
+      inputElement?.focus();
+    } catch (error) {
+      console.error('Error handling cue selection:', error);
+    }
   };
 
   const handleSendMessage = async (customContent?: string, isFromCue: boolean = false) => {
     const messageContent = customContent || input.trim();
     if (!messageContent || !userId) return;
+    
+    setShowPrompts(false); // Hide prompts when a message is sent
+    setShowMoodSelector(false); // Hide mood selector if open
 
     // Reset UI states immediately
     setInput('');
@@ -282,7 +306,7 @@ export default function BuddyPage() {
           ))}
           
           {/* Reflection Prompts Injection */}
-          {chatMode === 'reflection' && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !isLoading && (
+          {chatMode === 'reflection' && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !isLoading && showPrompts && (
             <div className="flex flex-wrap gap-2 mt-4 justify-center animate-in fade-in-50 slide-in-from-bottom-2">
               {REFLECTION_PROMPTS.slice(0, 3).map((prompt, i) => (
                 <button 
