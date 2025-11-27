@@ -1,9 +1,16 @@
 export const COLLEGE_OPTIONS = [
-  "Springfield University",
-  "Riverdale Institute of Technology",
-  "Deccan Arts & Science College",
-  "Coastal School of Business",
+  "Indian Institute of Technology Madras (IIT Madras)",
+  "Indian Institute of Technology Delhi (IIT Delhi)",
+  "Indian Institute of Technology Bombay (IIT Bombay)",
+  "Indian Institute of Technology Kanpur (IIT Kanpur)",
+  "Indian Institute of Technology Kharagpur (IIT Kharagpur)",
+  "Indian Institute of Technology Roorkee (IIT Roorkee)",
+  "Indian Institute of Technology Hyderabad (IIT Hyderabad)",
+  "Indian Institute of Technology Guwahati (IIT Guwahati)",
+  "National Institute of Technology Tiruchirappalli (NIT Trichy)",
+  "Indian Institute of Technology (BHU) Varanasi (IIT BHU)",
 ];
+
 
 export const INTEREST_TAGS = [
   "Tech",
