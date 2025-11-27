@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { findBestMentor } from "@/lib/actions/match-mentor";
-import { useState, useEffect, useRef } from "react"; // <--- FIXED: useRef included here
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   Code, Music, Plane, Gamepad2, Coffee,
   Ghost, ShieldCheck, Flame, Calendar, Clock, Mail,
   ThumbsUp, ThumbsDown, CheckCircle2, Search, Filter,
-  MoreHorizontal, Loader2
+  MoreHorizontal, Loader2, ChevronDown, ChevronUp, Zap, Heart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,8 +25,8 @@ const MENTOR_TOPICS = ["Exam Stress", "Career Guidance", "Resume Review", "Proje
 const CHAT_FILTERS = ["All", "Seniors", "Alumni", "Professors"];
 
 const TALKSPACE_ROOMS = [
-  { title: "Academic Stress", desc: "A space to share worries about exams, backlog pressure, or tough weeks", active: 24, icon: GraduationCap, color: "bg-orange-50 text-orange-600", border: "border-orange-100" },
-  { title: "Productivity", desc: "Gentle space to talk about feelings anonymously.", active: 12, icon: Sparkles, color: "bg-rose-50 text-rose-600", border: "border-rose-100" },
+  { title: "Academic Stress", desc: "Late night grind club. Discuss exams, labs, and deadlines.", active: 24, icon: GraduationCap, color: "bg-orange-50 text-orange-600", border: "border-orange-100" },
+  { title: "Emotional Wellbeing", desc: "Gentle space to talk about feelings anonymously.", active: 12, icon: Sparkles, color: "bg-rose-50 text-rose-600", border: "border-rose-100" },
   { title: "Career Confusion", desc: "Placements, internships, and figuring out what's next.", active: 18, icon: Briefcase, color: "bg-blue-50 text-blue-600", border: "border-blue-100" },
   { title: "Hostel Life", desc: "Roommate drama, homesickness, and mess food rants.", active: 8, icon: Coffee, color: "bg-amber-50 text-amber-600", border: "border-amber-100" },
   { title: "Coding Club", desc: "LeetCode marathons, hackathon teams, and debug help.", active: 42, icon: Code, color: "bg-slate-50 text-slate-600", border: "border-slate-200" },
@@ -93,7 +93,11 @@ function DashboardContent() {
           message: `Hey! I can help with ${m.confident_queries?.[0] || "anything"}.`,
           time: "Now",
           unread: m.unread_count || 0,
-          availability: m.availability_per_week
+          availability: m.availability_per_week,
+          // Mock data for UI if backend is missing it
+          groups: ["WnCC", "Placement Team", "Tech Club"],
+          experience: "Intern at Google (SDE)",
+          overcame: "Academic Burnout, Low CPI"
         }));
 
         setMentorsList(formattedMentors);
@@ -118,7 +122,7 @@ function DashboardContent() {
     if (!mentorInput.trim()) return;
 
     setMatcherState("searching");
-    setAiMatches([]); // Clear previous matches
+    setAiMatches([]);
 
     try {
       // Call the Server Action
@@ -129,7 +133,6 @@ function DashboardContent() {
         setMatcherState("found");
       } else {
         setMatcherState("idle");
-        // Could show a toast here
         console.log("No AI match found");
       }
     } catch (err) {
@@ -140,7 +143,6 @@ function DashboardContent() {
 
   const startChatting = (mentor: any) => {
     setMatcherState("idle");
-    // Format the mentor object for the chat overlay
     setSelectedChat({
       id: mentor.id,
       name: mentor.name,
@@ -203,9 +205,6 @@ function DashboardContent() {
                         className="w-full h-full min-h-[140px] rounded-2xl border border-slate-200 bg-white/80 p-5 text-sm shadow-inner focus:border-sky-400 focus:outline-none focus:ring-4 focus:ring-sky-50 resize-none transition-all placeholder:text-slate-400 group-hover:bg-white"
                         placeholder="Tell us what's happening... (e.g. 'I need help with my resume for Google internship')"
                       />
-                      <div className="absolute bottom-4 right-4 text-xs text-slate-300 pointer-events-none">
-                        
-                      </div>
                     </div>
 
                     <Button
@@ -235,33 +234,81 @@ function DashboardContent() {
               )}
 
               {matcherState === "found" && aiMatches.length > 0 && (
-                <div className="flex-1 flex flex-col p-6 animate-in zoom-in-95 duration-500 overflow-hidden">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 w-fit px-4 py-1.5 rounded-full border border-emerald-100">
+                <div className="flex-1 flex flex-col p-6 animate-in zoom-in-95 duration-500 overflow-hidden bg-slate-50/50">
+                  <div className="flex justify-between items-center mb-4 sticky top-0 bg-transparent z-20">
+                    <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 w-fit px-4 py-1.5 rounded-full border border-emerald-100 shadow-sm">
                       <CheckCircle2 size={18} />
                       <span className="font-bold text-sm">Top Recommendations</span>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setMatcherState("idle")} className="text-slate-400 hover:text-slate-600">Reset</Button>
                   </div>
 
-                  {/* Scrollable Container for matches */}
-                  <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
-                    {aiMatches.map((match, i) => (
-                      <div key={match.id} className="bg-white/80 rounded-2xl p-4 border border-sky-100 shadow-sm flex items-start gap-4 hover:border-sky-300 transition-all group">
-                        <div className={cn("h-14 w-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl font-bold shadow-md", match.avatar_color || "bg-indigo-100 text-indigo-600")}>
-                          {match.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start">
-                            <h4 className="text-lg font-bold text-slate-900 truncate">{match.name}</h4>
-                            {i === 0 && <Badge className="bg-sky-500 hover:bg-sky-600 text-[10px]">Best Match</Badge>}
+                  {/* --- 3D FLIP CARD LIST --- */}
+                  <div className="flex-1 overflow-y-auto pr-2 pb-4 scrollbar-thin scrollbar-thumb-slate-200">
+                    <div className="grid grid-cols-1 gap-4">
+                      {aiMatches.map((match, i) => {
+                        const groups = match.groups || ["WnCC", "Placement Team"];
+                        const experience = match.experience || "Intern at Google";
+
+                        return (
+                          <div key={match.id} className="group relative h-[190px] w-full [perspective:1000px]">
+
+                            {/* --- THE FLIPPER (CONTENT ONLY) --- */}
+                            <div className="absolute inset-0 transition-all duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+
+                              {/* FRONT FACE (Avatar + Bio) */}
+                              <div className="absolute inset-0 h-full w-full bg-white rounded-3xl p-5 border border-slate-100 shadow-sm [backface-visibility:hidden] flex flex-col">
+                                <div className="flex items-start gap-4">
+                                  <div className={cn("h-14 w-14 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl font-bold shadow-sm bg-white border border-slate-100", match.avatar_color?.replace('bg-', 'text-') || "text-slate-800")}>
+                                    {match.name.charAt(0)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="text-lg font-bold text-slate-900 truncate">{match.name}</h4>
+                                      {i === 0 && <Badge className="bg-[#0ea5e9] text-white rounded-full px-2 py-0.5 text-[10px] font-bold border-none">Best Match</Badge>}
+                                    </div>
+                                    <p className="text-xs text-[#0ea5e9] font-medium mt-0.5 truncate">{match.department_programme}</p>
+                                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mt-2">
+                                      "{match.bio_for_profile}"
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* BACK FACE (Stats) */}
+                              <div className="absolute inset-0 h-full w-full bg-slate-50 rounded-3xl p-5 border border-slate-200 shadow-inner [transform:rotateY(180deg)] [backface-visibility:hidden] flex flex-col">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-bold text-slate-900">Mentor Stats</h4>
+                                  <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider flex items-center gap-1"><ShieldCheck size={12} />Verified</div>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                                    <div className="h-6 w-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0"><Users size={12} /></div>
+                                    <div className="text-[10px] text-slate-600 truncate"><span className="font-bold text-slate-900">Groups:</span> {groups.join(", ")}</div>
+                                  </div>
+                                  <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                                    <div className="h-6 w-6 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 flex-shrink-0"><Briefcase size={12} /></div>
+                                    <div className="text-[10px] text-slate-600 truncate"><span className="font-bold text-slate-900">Exp:</span> {experience}</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+
+                            {/* --- STATIC BUTTON (FLOATING ON TOP - NEVER FLIPS) --- */}
+                            <div className="absolute bottom-4 left-5 right-5 z-20">
+                              <Button
+                                onClick={() => startChatting(match)}
+                                className="w-full rounded-full bg-[#0f172a] hover:bg-slate-800 text-white h-9 font-bold text-xs shadow-md transition-all active:scale-95"
+                              >
+                                Chat Now
+                              </Button>
+                            </div>
+
                           </div>
-                          <p className="text-xs text-sky-600 font-medium mb-1">{match.department_programme}</p>
-                          <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">"{match.bio_for_profile}"</p>
-                          <Button size="sm" onClick={() => startChatting(match)} className="mt-3 w-full h-8 bg-slate-900 hover:bg-sky-600 text-xs">Chat Now</Button>
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -434,7 +481,7 @@ function ChatOverlay({ chat, onClose }: { chat: any; onClose: () => void }) {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [showProfile, setShowProfile] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null); // <--- THIS WAS THE CAUSE, NOW FIXED
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleSend = () => {
     if (!inputValue.trim()) return;
