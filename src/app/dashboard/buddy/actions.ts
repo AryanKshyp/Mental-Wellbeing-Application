@@ -145,14 +145,12 @@ export async function generateResponse(
     const systemInstruction = mode === 'reflection' ? REFLECTION_PROMPT : COMMON_PROMPT;
 
     // 2. Initialize Model
-    // Note: 'gemini-2.5-flash' does not exist yet. Using 'gemini-1.5-flash'
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       systemInstruction
     });
 
     // 3. Format History for Gemini SDK
-    // SDK expects: { role: 'user' | 'model', parts: [{ text: string }] }
     let formattedHistory: Content[] = history
       .slice(-20) // Keep last 20 messages context
       .map(msg => ({
